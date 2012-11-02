@@ -18,6 +18,7 @@ setup(
     packages = ["pylithium"],
     py_modules=["pylithium.client"],
     license="MIT",
+    url="https://github.com/jawbone/pylithiumsso",
     test_suite='nose.collector',
     tests_require=["nose==1.2.1"],
     install_requires=["pycrypto==2.6"]
