@@ -3,7 +3,7 @@ Requires pycrypto.
 Initialize the client with client information:
 
 ```
-    from pylithiumsso.client import LithiumClient
+    from pylithium.client import LithiumClient
 
     client_id = "some_id"
     client_domain = ".example.com"
@@ -35,7 +35,7 @@ To decode a provided cookie value:
 
 ```
 
-    from pylithiumsso.client import LithiumClient
+    from pylithium.client import LithiumClient
 
     client_id = "some_id"
     client_domain = ".example.com"
