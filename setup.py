@@ -10,7 +10,7 @@ from setuptools import setup
 
 setup(
     name="pylithiumsso",
-    version="0.2.1",
+    version="0.2.2",
     description="Python Client for Lithium SSO Integration",
     author="Alex Milstead",
     author_email="amilstead@jawbone.com",
