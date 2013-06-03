@@ -37,6 +37,9 @@ COOKIE_FIELD_ORDER = [
 
 
 class LithiumClient(object):
+    """
+    Client object used to create a lithium SSO token.
+    """
 
     def __init__(self, client_id, client_domain, secret_key, settings=None):
         self.client_id = client_id
@@ -47,7 +50,18 @@ class LithiumClient(object):
 
     def get_sso_cookie(self, uid, username, email, user_agent, referer,
                        remote_addr, server_id=""):
-        """ Formats and returns the cookie name and encrypted cookie. """
+        """
+        Formats and returns the cookie name and encrypted cookie.
+
+        :param uid: unique id for a user.
+        :param username: the username.
+        :param email: email address of the user.
+        :param user_agent: User-Agent header value.
+        :param referer: Referer header.
+        :param remote_addr: Remote address of client.
+        :param server_id: The id of the server issuing this token.
+        :return: A cookie name and value tuple for Lithium SSO.
+        """
         server_id = self._parse_server_id(server_id, remote_addr)
         timestamp = "%s000" % int(time.time())
         cookie_values = {
@@ -81,7 +95,13 @@ class LithiumClient(object):
 
     @classmethod
     def encode(cls, secret_key, unencoded):
-        """ Uses CBC mode with an AES encryption encrypt a string. """
+        """
+        Uses CBC mode with an AES encryption encrypt a string.
+
+        :param secret_key: The secret key to encode with.
+        :param unencoded: Plain-text data to encode.
+        :return: The encoded value in a style used by Lithium for SSO interpretation.
+        """
         iv = cls._get_random_initialization_vector()
         cipher = AES.new(secret_key, mode=AES.MODE_CBC, IV=iv)
         compressed = zlib.compress(unencoded)
@@ -92,8 +112,11 @@ class LithiumClient(object):
     @classmethod
     def decode(cls, secret_key, encoded):
         """
-        Uses CBC mode on AES encryption to decrypt a string with the key
-        and initialization vector.
+        Uses CBC mode on AES encryption to decrypt a string with the key and initialization vector.
+
+        :param secret_key: The key used, presumably, to encode the data.
+        :param encoded: Encoded data.
+        :return: The decoded string value.
         """
         encoded_pieces = encoded.split("~")
         iv = encoded_pieces[1][1:]
