@@ -1,0 +1,312 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>pylithium.client &mdash; pylithiumsso 0.2.2 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.2.2',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="pylithiumsso 0.2.2 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">pylithiumsso 0.2.2 documentation</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for pylithium.client</h1><div class="highlight"><pre>
+<span class="kn">import</span> <span class="nn">base64</span>
+<span class="kn">import</span> <span class="nn">binascii</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">string</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">zlib</span>
+
+<span class="kn">from</span> <span class="nn">Crypto.Cipher</span> <span class="kn">import</span> <span class="n">AES</span>
+
+<span class="n">_CRYPTO_BAD_CHARS</span> <span class="o">=</span> <span class="s">&quot;+/=&quot;</span>
+<span class="n">_CRYPTO_GOOD_CHARS</span> <span class="o">=</span> <span class="s">&quot;-_.&quot;</span>
+<span class="n">ENCRYPT_REPLACE</span> <span class="o">=</span> <span class="n">string</span><span class="o">.</span><span class="n">maketrans</span><span class="p">(</span><span class="n">_CRYPTO_BAD_CHARS</span><span class="p">,</span> <span class="n">_CRYPTO_GOOD_CHARS</span><span class="p">)</span>
+<span class="n">DECRYPT_REPLACE</span> <span class="o">=</span> <span class="n">string</span><span class="o">.</span><span class="n">maketrans</span><span class="p">(</span><span class="n">_CRYPTO_GOOD_CHARS</span><span class="p">,</span> <span class="n">_CRYPTO_BAD_CHARS</span><span class="p">)</span>
+<span class="n">CRYPTO_BLOCK_SIZE</span> <span class="o">=</span> <span class="mi">16</span>
+<span class="n">CRYPTO_PADDING</span> <span class="o">=</span> <span class="s">&#39;</span><span class="se">\0</span><span class="s">&#39;</span>
+<span class="n">DIGITS</span> <span class="o">=</span> <span class="s">&quot;0123456789&quot;</span>
+<span class="n">LETTERS</span> <span class="o">=</span> <span class="s">&quot;abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ&quot;</span>
+<span class="n">VECTOR_SPACE</span> <span class="o">=</span> <span class="n">DIGITS</span> <span class="o">+</span> <span class="n">LETTERS</span>
+<span class="n">COOKIE_NAME</span> <span class="o">=</span> <span class="s">&quot;lithiumSSO:&quot;</span>
+<span class="n">COOKIE_VERSION</span> <span class="o">=</span> <span class="s">&quot;LiSSOv1.5&quot;</span>
+<span class="n">COOKIE_FIELD_SEPARATOR</span> <span class="o">=</span> <span class="s">&quot;|&quot;</span>
+<span class="n">COOKIE_FIELD_ORDER</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s">&quot;version&quot;</span><span class="p">,</span>              <span class="c"># lithium version</span>
+    <span class="s">&quot;server_id&quot;</span><span class="p">,</span>            <span class="c"># server id (for &quot;increasing randomness&quot;)</span>
+    <span class="s">&quot;tsid&quot;</span><span class="p">,</span>                 <span class="c"># random timestamp + 1</span>
+    <span class="s">&quot;timestamp&quot;</span><span class="p">,</span>            <span class="c"># timestamp of cookie creation</span>
+    <span class="s">&quot;http_user_agent&quot;</span><span class="p">,</span>      <span class="c"># user agent from request</span>
+    <span class="s">&quot;http_referer&quot;</span><span class="p">,</span>         <span class="c"># referer from request</span>
+    <span class="s">&quot;http_remote_address&quot;</span><span class="p">,</span>  <span class="c"># remote address from request</span>
+    <span class="s">&quot;client_domain&quot;</span><span class="p">,</span>        <span class="c"># requesting site&#39;s domain.</span>
+    <span class="s">&quot;client_id&quot;</span><span class="p">,</span>            <span class="c"># provided client id</span>
+    <span class="s">&quot;unique_id&quot;</span><span class="p">,</span>            <span class="c"># user&#39;s unique identifier</span>
+    <span class="s">&quot;username&quot;</span><span class="p">,</span>             <span class="c"># user&#39;s username</span>
+    <span class="s">&quot;email_address&quot;</span><span class="p">,</span>        <span class="c"># user&#39;s email address</span>
+    <span class="s">&quot;settings&quot;</span>              <span class="c"># key=val settings string</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="LithiumClient"><a class="viewcode-back" href="../../pylithium/client.html#pylithium.client.LithiumClient">[docs]</a><span class="k">class</span> <span class="nc">LithiumClient</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Client object used to create a lithium SSO token.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client_id</span><span class="p">,</span> <span class="n">client_domain</span><span class="p">,</span> <span class="n">secret_key</span><span class="p">,</span> <span class="n">settings</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">client_id</span> <span class="o">=</span> <span class="n">client_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">client_domain</span> <span class="o">=</span> <span class="n">client_domain</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">secret_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hexpack</span><span class="p">(</span><span class="n">secret_key</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tsid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">())</span> <span class="o">*</span> <span class="mi">1000</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">settings</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">settings</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">settings</span>
+
+<div class="viewcode-block" id="LithiumClient.get_sso_cookie"><a class="viewcode-back" href="../../pylithium/client.html#pylithium.client.LithiumClient.get_sso_cookie">[docs]</a>    <span class="k">def</span> <span class="nf">get_sso_cookie</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">uid</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">email</span><span class="p">,</span> <span class="n">user_agent</span><span class="p">,</span> <span class="n">referer</span><span class="p">,</span>
+                       <span class="n">remote_addr</span><span class="p">,</span> <span class="n">server_id</span><span class="o">=</span><span class="s">&quot;&quot;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Formats and returns the cookie name and encrypted cookie.</span>
+
+<span class="sd">        :param uid: unique id for a user.</span>
+<span class="sd">        :param username: the username.</span>
+<span class="sd">        :param email: email address of the user.</span>
+<span class="sd">        :param user_agent: User-Agent header value.</span>
+<span class="sd">        :param referer: Referer header.</span>
+<span class="sd">        :param remote_addr: Remote address of client.</span>
+<span class="sd">        :param server_id: The id of the server issuing this token.</span>
+<span class="sd">        :return: A cookie name and value tuple for Lithium SSO.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">server_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_server_id</span><span class="p">(</span><span class="n">server_id</span><span class="p">,</span> <span class="n">remote_addr</span><span class="p">)</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">000&quot;</span> <span class="o">%</span> <span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">())</span>
+        <span class="n">cookie_values</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s">&quot;version&quot;</span><span class="p">:</span>              <span class="n">COOKIE_VERSION</span><span class="p">,</span>
+            <span class="s">&quot;server_id&quot;</span><span class="p">:</span>            <span class="n">server_id</span><span class="p">,</span>
+            <span class="s">&quot;tsid&quot;</span><span class="p">:</span>                 <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tsid</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span>
+            <span class="s">&quot;timestamp&quot;</span><span class="p">:</span>            <span class="n">timestamp</span><span class="p">,</span>
+            <span class="s">&quot;http_referer&quot;</span><span class="p">:</span>         <span class="bp">self</span><span class="o">.</span><span class="n">_token_safe_string</span><span class="p">(</span><span class="n">referer</span><span class="p">),</span>
+            <span class="s">&quot;http_user_agent&quot;</span><span class="p">:</span>      <span class="bp">self</span><span class="o">.</span><span class="n">_token_safe_string</span><span class="p">(</span><span class="n">user_agent</span><span class="p">),</span>
+            <span class="s">&quot;http_remote_address&quot;</span><span class="p">:</span>  <span class="bp">self</span><span class="o">.</span><span class="n">_token_safe_string</span><span class="p">(</span><span class="n">remote_addr</span><span class="p">),</span>
+            <span class="s">&quot;client_domain&quot;</span><span class="p">:</span>        <span class="bp">self</span><span class="o">.</span><span class="n">client_domain</span><span class="p">,</span>
+            <span class="s">&quot;client_id&quot;</span><span class="p">:</span>            <span class="bp">self</span><span class="o">.</span><span class="n">client_id</span><span class="p">,</span>
+            <span class="s">&quot;unique_id&quot;</span><span class="p">:</span>            <span class="bp">self</span><span class="o">.</span><span class="n">_token_safe_string</span><span class="p">(</span><span class="n">uid</span><span class="p">),</span>
+            <span class="s">&quot;username&quot;</span><span class="p">:</span>             <span class="bp">self</span><span class="o">.</span><span class="n">_token_safe_string</span><span class="p">(</span><span class="n">username</span><span class="p">),</span>
+            <span class="s">&quot;email_address&quot;</span><span class="p">:</span>        <span class="bp">self</span><span class="o">.</span><span class="n">_token_safe_string</span><span class="p">(</span><span class="n">email</span><span class="p">),</span>
+            <span class="s">&quot;settings&quot;</span><span class="p">:</span>             <span class="bp">self</span><span class="o">.</span><span class="n">_parse_settings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">)</span>
+        <span class="p">}</span>
+
+        <span class="c"># Generate it</span>
+        <span class="n">cookie_string</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_format_cookie</span><span class="p">(</span><span class="n">cookie_values</span><span class="p">)</span>
+
+        <span class="c"># Encrypt it</span>
+        <span class="n">encrypted_cookie</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">secret_key</span><span class="p">,</span> <span class="n">cookie_string</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cookie_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">client_id</span><span class="p">),</span> <span class="n">encrypted_cookie</span>
+</div>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_cookie_name</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">client_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Cookie name, in case the changes at some point. &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s">&quot;</span><span class="si">%s%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">COOKIE_NAME</span><span class="p">,</span> <span class="n">client_id</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="LithiumClient.encode"><a class="viewcode-back" href="../../pylithium/client.html#pylithium.client.LithiumClient.encode">[docs]</a>    <span class="k">def</span> <span class="nf">encode</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">secret_key</span><span class="p">,</span> <span class="n">unencoded</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Uses CBC mode with an AES encryption encrypt a string. &quot;&quot;&quot;</span>
+        <span class="n">iv</span> <span class="o">=</span> <span class="n">cls</span><span class="o">.</span><span class="n">_get_random_initialization_vector</span><span class="p">()</span>
+        <span class="n">cipher</span> <span class="o">=</span> <span class="n">AES</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">secret_key</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">AES</span><span class="o">.</span><span class="n">MODE_CBC</span><span class="p">,</span> <span class="n">IV</span><span class="o">=</span><span class="n">iv</span><span class="p">)</span>
+        <span class="n">compressed</span> <span class="o">=</span> <span class="n">zlib</span><span class="o">.</span><span class="n">compress</span><span class="p">(</span><span class="n">unencoded</span><span class="p">)</span>
+        <span class="n">encrypted</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="n">cipher</span><span class="o">.</span><span class="n">encrypt</span><span class="p">(</span><span class="n">cls</span><span class="o">.</span><span class="n">_pad</span><span class="p">(</span><span class="n">compressed</span><span class="p">)))</span>
+        <span class="n">encrypted</span> <span class="o">=</span> <span class="n">encrypted</span><span class="o">.</span><span class="n">translate</span><span class="p">(</span><span class="n">ENCRYPT_REPLACE</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s">&quot;~2</span><span class="si">%s</span><span class="s">~</span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">iv</span><span class="p">,</span> <span class="n">encrypted</span><span class="p">)</span>
+</div>
+    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="LithiumClient.decode"><a class="viewcode-back" href="../../pylithium/client.html#pylithium.client.LithiumClient.decode">[docs]</a>    <span class="k">def</span> <span class="nf">decode</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">secret_key</span><span class="p">,</span> <span class="n">encoded</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Uses CBC mode on AES encryption to decrypt a string with the key</span>
+<span class="sd">        and initialization vector.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">encoded_pieces</span> <span class="o">=</span> <span class="n">encoded</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&quot;~&quot;</span><span class="p">)</span>
+        <span class="n">iv</span> <span class="o">=</span> <span class="n">encoded_pieces</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="n">cipher</span> <span class="o">=</span> <span class="n">AES</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">secret_key</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">AES</span><span class="o">.</span><span class="n">MODE_CBC</span><span class="p">,</span> <span class="n">IV</span><span class="o">=</span><span class="n">iv</span><span class="p">)</span>
+        <span class="n">encoded_data</span> <span class="o">=</span> <span class="n">encoded_pieces</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">encoded_data</span> <span class="o">=</span> <span class="n">encoded_data</span><span class="o">.</span><span class="n">translate</span><span class="p">(</span><span class="n">DECRYPT_REPLACE</span><span class="p">)</span>
+        <span class="n">decrypted</span> <span class="o">=</span> <span class="n">cls</span><span class="o">.</span><span class="n">_unpad</span><span class="p">(</span><span class="n">cipher</span><span class="o">.</span><span class="n">decrypt</span><span class="p">(</span><span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">encoded_data</span><span class="p">)))</span>
+        <span class="n">decrypted</span> <span class="o">=</span> <span class="n">zlib</span><span class="o">.</span><span class="n">decompress</span><span class="p">(</span><span class="n">decrypted</span><span class="p">)</span>
+        <span class="n">data_split</span> <span class="o">=</span> <span class="n">decrypted</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&quot;|&quot;</span><span class="p">)</span>
+        <span class="n">settings_array</span> <span class="o">=</span> <span class="n">data_split</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">COOKIE_FIELD_ORDER</span><span class="p">):]</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">settings_array</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="n">settings_array</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="n">settings_array</span><span class="p">[</span><span class="n">index</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&quot;iL&quot;</span><span class="p">,</span> <span class="s">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">data_split</span> <span class="o">=</span> <span class="n">data_split</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+
+        <span class="n">decrypted_data</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">COOKIE_FIELD_ORDER</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>  <span class="c"># Settings separately.</span>
+            <span class="n">datum</span> <span class="o">=</span> <span class="n">data_split</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="c"># If ID has a &quot;-&quot; in it from inception; don&#39;t need to replace here.</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">datum</span> <span class="o">=</span> <span class="n">datum</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&quot;-&quot;</span><span class="p">,</span> <span class="n">COOKIE_FIELD_SEPARATOR</span><span class="p">)</span>
+            <span class="n">decrypted_data</span><span class="p">[</span><span class="n">COOKIE_FIELD_ORDER</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">=</span> <span class="n">datum</span>
+
+        <span class="n">settings</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">settings_array</span><span class="p">:</span>
+            <span class="n">_item</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&quot;-&quot;</span><span class="p">,</span> <span class="n">COOKIE_FIELD_SEPARATOR</span><span class="p">)</span>
+            <span class="n">split_up</span> <span class="o">=</span> <span class="n">_item</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&quot;=&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">_item</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">split_up</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">settings</span><span class="p">[</span><span class="n">split_up</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">split_up</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">decrypted_data</span><span class="p">[</span><span class="s">&quot;settings&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">settings</span>
+        <span class="k">return</span> <span class="n">decrypted_data</span>
+</div>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_unpad</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">decrypted_string</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Unpads string that was encrypted/padded with CRYPTO_PADDING. &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">decrypted_string</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="n">CRYPTO_PADDING</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_pad</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">encryption_string</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Pads a string with CRYPTO_PADDING, using CRYPTO_BLOCK_SIZE. &quot;&quot;&quot;</span>
+        <span class="n">string_length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">encryption_string</span><span class="p">)</span>
+        <span class="n">padding</span> <span class="o">=</span> <span class="p">(</span><span class="n">CRYPTO_BLOCK_SIZE</span> <span class="o">-</span> <span class="n">string_length</span> <span class="o">%</span> <span class="n">CRYPTO_BLOCK_SIZE</span><span class="p">)</span>
+        <span class="n">padding</span> <span class="o">*=</span> <span class="n">CRYPTO_PADDING</span>
+        <span class="k">return</span> <span class="n">encryption_string</span> <span class="o">+</span> <span class="n">padding</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_get_random_initialization_vector</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">CRYPTO_BLOCK_SIZE</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generates a random initialization vector for AES-CBC encryption</span>
+<span class="sd">        using the provided length.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">VECTOR_SPACE</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">length</span><span class="p">))</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_parse_server_id</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">server_id</span><span class="p">,</span> <span class="n">server_addr</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Function to &quot;increase randomness&quot;. &quot;&quot;&quot;</span>
+        <span class="n">server_id</span> <span class="o">=</span> <span class="n">server_id</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">server_id</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">server_id</span><span class="p">):</span>
+            <span class="n">server_id</span> <span class="o">=</span> <span class="s">&quot;34&quot;</span>  <span class="c"># Still not sure why this is a default.</span>
+        <span class="k">return</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">-</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">server_id</span><span class="p">,</span> <span class="n">cls</span><span class="o">.</span><span class="n">_gen_random_hex</span><span class="p">())</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_parse_settings</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">settings_dict</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Parses a settings array into a key=val string. &quot;&quot;&quot;</span>
+        <span class="n">settings_data</span> <span class="o">=</span> <span class="s">&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">settings_dict</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">settings_data</span><span class="p">):</span>
+                <span class="n">settings_data</span> <span class="o">+=</span> <span class="n">COOKIE_FIELD_SEPARATOR</span>
+            <span class="n">settings_data</span> <span class="o">+=</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">=</span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">cls</span><span class="o">.</span><span class="n">_token_safe_string</span><span class="p">(</span><span class="n">key</span><span class="p">),</span>
+                                        <span class="n">cls</span><span class="o">.</span><span class="n">_token_safe_string</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">settings_data</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_format_cookie</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">cookie_data</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Uses COOKIE_FIELD_ORDER to format the cookie into a string of values</span>
+<span class="sd">        separated by COOKIE_FIELD_SEPARATOR.</span>
+
+<span class="sd">        This is as per the Lithium SSO documentation/spec for the data format.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cookie_string</span> <span class="o">=</span> <span class="s">&quot;Li&quot;</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">COOKIE_FIELD_ORDER</span><span class="p">:</span>
+            <span class="n">cookie_datum</span> <span class="o">=</span> <span class="n">cookie_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">field</span><span class="p">,</span> <span class="s">&quot;&quot;</span><span class="p">)</span>
+            <span class="n">cookie_string</span> <span class="o">+=</span> <span class="s">&quot;</span><span class="si">%s%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">COOKIE_FIELD_SEPARATOR</span><span class="p">,</span> <span class="n">cookie_datum</span><span class="p">)</span>
+
+        <span class="n">cookie_string</span> <span class="o">=</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">iL&quot;</span> <span class="o">%</span> <span class="n">cookie_string</span>
+        <span class="k">return</span> <span class="n">cookie_string</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_hexpack</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">hex_string</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Turns a plain-text hex string into a binary string.</span>
+
+<span class="sd">        String must be hex chars only and an even length.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">binascii</span><span class="o">.</span><span class="n">unhexlify</span><span class="p">(</span><span class="n">hex_string</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_gen_random_hex</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mi">32</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Generates a random hex string of given length. &quot;&quot;&quot;</span>
+        <span class="c"># Why 32? I don&#39;t like magic numbers.</span>
+        <span class="n">random_vals</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">string</span><span class="o">.</span><span class="n">hexdigits</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">length</span><span class="p">))</span>
+        <span class="k">return</span> <span class="s">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">random_vals</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_token_safe_string</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">token_string</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Replaces any occurrences of COOKIE_FIELD_SEPARATOR. &quot;&quot;&quot;</span>
+        <span class="n">safe_string</span> <span class="o">=</span> <span class="n">token_string</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">COOKIE_FIELD_SEPARATOR</span><span class="p">,</span> <span class="s">&quot;-&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">safe_string</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">pylithiumsso 0.2.2 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Alex Milstead.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b1.
+    </div>
+  </body>
+</html>

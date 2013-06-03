@@ -1,0 +1,180 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>pylithium.client &mdash; pylithiumsso 0.2.2 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.2.2',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="pylithiumsso 0.2.2 documentation" href="../index.html" />
+    <link rel="prev" title="Welcome to pylithiumsso’s documentation!" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../index.html" title="Welcome to pylithiumsso’s documentation!"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">pylithiumsso 0.2.2 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="module-pylithium.client">
+<span id="pylithium-client"></span><h1><a class="reference internal" href="#module-pylithium.client" title="pylithium.client"><tt class="xref py py-mod docutils literal"><span class="pre">pylithium.client</span></tt></a><a class="headerlink" href="#module-pylithium.client" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="pylithium.client.LithiumClient">
+<em class="property">class </em><tt class="descclassname">pylithium.client.</tt><tt class="descname">LithiumClient</tt><big>(</big><em>client_id</em>, <em>client_domain</em>, <em>secret_key</em>, <em>settings=None</em><big>)</big><a class="reference internal" href="../_modules/pylithium/client.html#LithiumClient"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pylithium.client.LithiumClient" title="Permalink to this definition">¶</a></dt>
+<dd><p>Client object used to create a lithium SSO token.</p>
+<dl class="classmethod">
+<dt id="pylithium.client.LithiumClient.decode">
+<em class="property">classmethod </em><tt class="descname">decode</tt><big>(</big><em>secret_key</em>, <em>encoded</em><big>)</big><a class="reference internal" href="../_modules/pylithium/client.html#LithiumClient.decode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pylithium.client.LithiumClient.decode" title="Permalink to this definition">¶</a></dt>
+<dd><p>Uses CBC mode on AES encryption to decrypt a string with the key and initialization vector.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>secret_key</strong> &#8211; The key used, presumably, to encode the data.</li>
+<li><strong>encoded</strong> &#8211; Encoded data.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">The decoded string value.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="pylithium.client.LithiumClient.encode">
+<em class="property">classmethod </em><tt class="descname">encode</tt><big>(</big><em>secret_key</em>, <em>unencoded</em><big>)</big><a class="reference internal" href="../_modules/pylithium/client.html#LithiumClient.encode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pylithium.client.LithiumClient.encode" title="Permalink to this definition">¶</a></dt>
+<dd><p>Uses CBC mode with an AES encryption encrypt a string.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>secret_key</strong> &#8211; The secret key to encode with.</li>
+<li><strong>unencoded</strong> &#8211; Plain-text data to encode.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">The encoded value in a style used by Lithium for SSO interpretation.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pylithium.client.LithiumClient.get_sso_cookie">
+<tt class="descname">get_sso_cookie</tt><big>(</big><em>uid</em>, <em>username</em>, <em>email</em>, <em>user_agent</em>, <em>referer</em>, <em>remote_addr</em>, <em>server_id=''</em><big>)</big><a class="reference internal" href="../_modules/pylithium/client.html#LithiumClient.get_sso_cookie"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pylithium.client.LithiumClient.get_sso_cookie" title="Permalink to this definition">¶</a></dt>
+<dd><p>Formats and returns the cookie name and encrypted cookie.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>uid</strong> &#8211; unique id for a user.</li>
+<li><strong>username</strong> &#8211; the username.</li>
+<li><strong>email</strong> &#8211; email address of the user.</li>
+<li><strong>user_agent</strong> &#8211; User-Agent header value.</li>
+<li><strong>referer</strong> &#8211; Referer header.</li>
+<li><strong>remote_addr</strong> &#8211; Remote address of client.</li>
+<li><strong>server_id</strong> &#8211; The id of the server issuing this token.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A cookie name and value tuple for Lithium SSO.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="../index.html"
+                        title="previous chapter">Welcome to pylithiumsso&#8217;s documentation!</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/pylithium/client.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../index.html" title="Welcome to pylithiumsso’s documentation!"
+             >previous</a> |</li>
+        <li><a href="../index.html">pylithiumsso 0.2.2 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Alex Milstead.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b1.
+    </div>
+  </body>
+</html>
