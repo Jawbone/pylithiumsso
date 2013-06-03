@@ -50,3 +50,8 @@ To decode a provided cookie value:
     cookie_dict = client.decode(client.secret_key, "lithium_encoded_cookie")
 
 ```
+
+
+More comprehensive docs can be found here:
+
+http://jawbone.github.io/pylithiumsso/
